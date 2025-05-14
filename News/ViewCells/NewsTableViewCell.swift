@@ -6,7 +6,10 @@ class NewsTableViewCell: UITableViewCell {
     
     // MARK: - Typealiases
     
-    typealias Constants = GlobalConstants.Constants
+    typealias Constants = CellsModels.Constants
+    typealias Images = CellsModels.Images
+    typealias Texts = CellsModels.Texts
+    
     typealias Colors = GlobalConstants.Colors
     typealias Fonts = GlobalConstants.Fonts
     
@@ -17,10 +20,21 @@ class NewsTableViewCell: UITableViewCell {
     private let newsImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.backgroundColor = Colors.beigeColor
-        imageView.contentMode = .center
-        imageView.image = UIImage(systemName: "text.page")
+        imageView.clipsToBounds = true
         return imageView
     }()
+    
+    private var previewImage: UIImage? {
+        didSet {
+            newsImageView.image = previewImage
+            
+            if previewImage === Images.newsImage {
+                newsImageView.contentMode = .center
+            } else {
+                newsImageView.contentMode = .scaleAspectFill
+            }
+        }
+    }
     
     private let titleLabel: UILabel = {
         let label = UILabel()
@@ -45,16 +59,23 @@ class NewsTableViewCell: UITableViewCell {
         return label
     }()
     
-    private let menuButton: UIButton = {
+    private lazy var menuButton: UIButton = {
         let button = UIButton()
+        button.tintColor = Colors.greyColor
+        button.setBackgroundImage(Images.menuImage, for: .normal)
+        button.menu = getMenu()
+        button.showsMenuAsPrimaryAction = true
         return button
     }()
     
+    private var news: News?
+    private var viewModel: IMainViewModel?
     private var linkView: LPLinkView?
     private var currentURL: URL?
     
     // MARK: - Static Metadata Cache
-    private static var metadataCache: [URL: LPLinkMetadata] = [:]
+    private var metadataTask: Task<Void, Never>? = nil
+    private static var imageCache: [URL: UIImage] = [:]
     
     // MARK: - Lifecycle
     
@@ -73,17 +94,35 @@ class NewsTableViewCell: UITableViewCell {
         titleLabel.text = nil
         categoryLabel.text = nil
         dateLabel.text = nil
-        
-        linkView?.removeFromSuperview()
-        linkView = nil
         currentURL = nil
+        previewImage = Images.newsImage
+        
+        metadataTask?.cancel()
+        metadataTask = nil
     }
 }
 
 extension NewsTableViewCell {
     // MARK: - Methods
     
-    private func configureUI() {
+    func configure(with news: News, viewModel: IMainViewModel) {
+        self.viewModel = viewModel
+        self.news = news
+        titleLabel.text = news.title
+        categoryLabel.text = news.sectionName
+        dateLabel.text = news.date.getFormattedDate()
+        
+        if let url = URL(string: news.url) {
+            currentURL = url
+            loadPreviewImage(for: url)
+        }
+    }
+}
+
+private extension NewsTableViewCell {
+    // MARK: - Private Methods
+    
+    func configureUI() {
         backgroundColor = .clear
         selectionStyle = .none
         
@@ -94,8 +133,8 @@ extension NewsTableViewCell {
 
         containerView.snp.makeConstraints { make in
             make.left.right.equalToSuperview()
-            make.top.equalToSuperview().offset(Constants.verticalSpacing)
-            make.bottom.equalToSuperview().inset(Constants.verticalSpacing)
+            make.top.equalToSuperview().offset(GlobalConstants.Constants.verticalSpacing)
+            make.bottom.equalToSuperview().inset(GlobalConstants.Constants.verticalSpacing)
         }
 
         newsImageView.roundConrers(cornerRadius: Constants.smallRadius)
@@ -107,62 +146,98 @@ extension NewsTableViewCell {
             make.width.equalTo(newsImageView.snp.height)
         }
         
-        containerView.addSubview(titleLabel)
-        titleLabel.snp.makeConstraints { make in
-            make.left.equalTo(newsImageView.snp.right).offset(Constants.horizontalSpacing)
+        containerView.addSubview(menuButton)
+
+        menuButton.snp.makeConstraints { make in
             make.top.equalTo(newsImageView)
-            make.right.equalTo(containerView).inset(Constants.horizontalSpacing)
+            make.right.equalToSuperview().inset(Constants.cellSpacing)
+            make.width.height.equalTo(Constants.menuButtonSize)
         }
         
+        containerView.addSubview(titleLabel)
+        titleLabel.snp.makeConstraints { make in
+            make.left.equalTo(newsImageView.snp.right).offset(GlobalConstants.Constants.horizontalSpacing)
+            make.top.equalTo(newsImageView)
+            make.right.equalTo(menuButton.snp.left).offset(-GlobalConstants.Constants.horizontalSpacing)
+        }
+
         containerView.addSubview(categoryLabel)
         categoryLabel.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(Constants.verticalSpacing)
+            make.top.equalTo(titleLabel.snp.bottom).offset(GlobalConstants.Constants.verticalSpacing)
             make.left.equalTo(titleLabel)
-            make.bottom.lessThanOrEqualToSuperview().inset(Constants.verticalSpacing).priority(.high)
+            make.bottom.lessThanOrEqualToSuperview().inset(GlobalConstants.Constants.verticalSpacing).priority(.high)
+        }
+        
+        let circleImageView = UIImageView(image: Images.circleImage)
+        circleImageView.tintColor = Colors.greyColor
+        circleImageView.contentMode = .scaleAspectFit
+        containerView.addSubview(circleImageView)
+        circleImageView.snp.makeConstraints { make in
+            make.centerY.equalTo(categoryLabel).offset(1)
+            make.left.equalTo(categoryLabel.snp.right).offset(Constants.cellSpacing / 3)
+            make.width.height.equalTo(Constants.circleSize)
+        }
+        
+        containerView.addSubview(dateLabel)
+        dateLabel.snp.makeConstraints { make in
+            make.top.equalTo(categoryLabel)
+            make.left.equalTo(circleImageView.snp.right).offset(Constants.cellSpacing / 3)
+            make.right.lessThanOrEqualTo(titleLabel)
+        }
+        
+        previewImage = Images.newsImage
+    }
+    
+    func getMenu() -> UIMenu {
+        let menu = UIMenu(title: .empty, children: [
+            UIAction(title: Texts.addToFavorite, image: Images.heartImage) { [self] _ in
+                if let news {
+                    viewModel?.toggleFavorite(news: news)
+                }
+            },
+            UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { [self] _ in
+                if let news {
+                    viewModel?.toggleBlocked(news: news)
+                }
+            }
+        ])
+        
+        return menu
+    }
+    
+    private func loadPreviewImage(for url: URL) {
+        // Если в кэше — сразу вернуть
+        if let cachedImage = Self.imageCache[url] {
+            previewImage = cachedImage
+            return
+        }
+
+        metadataTask = Task { [weak self] in
+            guard let self = self else { return }
+
+            do {
+                let metadata = try await LPMetadataProvider().startFetchingMetadata(for: url)
+                guard self.currentURL == url else { return }
+
+                if let imageProvider = metadata.imageProvider {
+                    let image = try await imageProvider.loadPreviewImage()
+                    Self.imageCache[url] = image
+                    if self.currentURL == url {
+                        previewImage = image
+                    }
+                }
+            } catch {
+                print("Preview image load failed:", error.localizedDescription)
+            }
         }
     }
-
-    private func addLinkView(with metadata: LPLinkMetadata) {
+    
+    func addLinkView(with metadata: LPLinkMetadata) {
         let linkView = LPLinkView(metadata: metadata)
         newsImageView.addSubview(linkView)
         linkView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
         self.linkView = linkView
-    }
-    
-    func configure(with news: News) {
-        titleLabel.text = news.title
-        categoryLabel.text = news.sectionName
-        currentURL = URL(string: news.url)
-        
-        if let url = currentURL {
-            // Если уже есть метаданные — используем сразу
-            if let cachedMetadata = Self.metadataCache[url] {
-                addLinkView(with: cachedMetadata)
-                return
-            }
-            
-            // Иначе грузим через LPMetadataProvider
-            let provider = LPMetadataProvider()
-            provider.startFetchingMetadata(for: url) { [weak self] metadata, error in
-                guard
-                    let self = self,
-                    let metadata = metadata,
-                    self.currentURL == url,
-                    error == nil
-                else {
-                    return
-                }
-                
-                // Кэшируем и отображаем
-                Self.metadataCache[url] = metadata
-                DispatchQueue.main.async {
-                    self.addLinkView(with: metadata)
-                }
-            }
-        }
-        
-        layoutIfNeeded()
     }
 }

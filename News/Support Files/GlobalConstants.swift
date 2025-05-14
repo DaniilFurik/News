@@ -10,16 +10,18 @@ enum GlobalConstants {
     }
     
     enum Constants {
-        static let bigRadius: CGFloat = 8
-        static let smallRadius = bigRadius / 2
         static let verticalSpacing: CGFloat = 8
         static let horizontalSpacing: CGFloat = 16
-        static let cellSpacing: CGFloat = 12
         static let cellSize: CGFloat = 126
     }
     
     enum Fonts {
         static let primaryFont: UIFont = .systemFont(ofSize: 17, weight: .medium)
         static let secondaryFont: UIFont = .systemFont(ofSize: 15, weight: .regular)
+    }
+    
+    enum Errors {
+        static let noConnectionErrorMessage = "No internet connection"
+        static let genericErrorMessage = "Something went wrong"
     }
 }

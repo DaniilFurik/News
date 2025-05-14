@@ -2,40 +2,72 @@ import Foundation
 import RxSwift
 import RxCocoa
 
+enum SegmentType: Int {
+    case all
+    case favorites
+    case blocked
+}
+
 // MARK: - Protocol
 
 protocol IMainViewModel {
-    var publishError: PublishRelay<String> { get set }
-    var newsItems: Observable<[News]> { get }
+    var publishError: PublishRelay<String> { get }
+    var filteredNews: Observable<[News]> { get }
+    
     func loadNews()
+    func toggleFavorite(news: News)
+    func toggleBlocked(news: News)
+    func selectSegment(_ segment: SegmentType)
 }
 
 final class MainViewModel {
+    // MARK: - Typealiases
+    
+    typealias Errors = GlobalConstants.Errors
+    
     // MARK: - Properties
     
-    var publishError = PublishRelay<String>()
+    let publishError = PublishRelay<String>()
     
-    private let itemsRelay = BehaviorRelay<[News]>(value: [])
     private let service: INetworkService = NetworkService()
     private let disposeBag = DisposeBag()
     
-    var newsItems: Observable<[News]> {
-        return itemsRelay.asObservable()
+    private let allNewsRelay = BehaviorRelay<[News]>(value: [])
+    private let favoriteIDsRelay = BehaviorRelay<Set<String>>(value: [])
+    private let blockedIDsRelay = BehaviorRelay<Set<String>>(value: [])
+    private let selectedSegmentRelay = BehaviorRelay<SegmentType>(value: .all)
+
+    var filteredNews: Observable<[News]> {
+        Observable.combineLatest(
+            allNewsRelay,
+            favoriteIDsRelay,
+            blockedIDsRelay,
+            selectedSegmentRelay
+        )
+        .map { news, favorites, blocked, segment in
+            switch segment {
+            case .all:
+                return news.filter { !blocked.contains($0.id) }
+            case .favorites:
+                return news.filter { favorites.contains($0.id) && !blocked.contains($0.id) }
+            case .blocked:
+                return news.filter { blocked.contains($0.id) }
+            }
+        }
     }
     
     init() {
         service.publishResult.subscribe(onNext: { [weak self] data in
-            guard let self, let data else {
-                self?.publishError.accept("ERROR")
+            guard let self = self else { return }
+            guard let data = data else {
+                self.publishError.accept(Errors.genericErrorMessage)
                 return
             }
             
-            var news = self.getFormattedNews(from: data.results)
-            news = self.getFilteredNews(from: news)
-            self.itemsRelay.accept(news)
+            let news = self.getFormattedNews(from: data.results)
+            self.allNewsRelay.accept(news)
         }).disposed(by: disposeBag)
     }
-    
 }
 
 private extension MainViewModel {
@@ -54,10 +86,6 @@ private extension MainViewModel {
         }
         return news
     }
-    
-    func getFilteredNews(from news:[News]) -> [News] {
-        return news
-    }
 }
 
 extension MainViewModel: IMainViewModel {
@@ -67,17 +95,19 @@ extension MainViewModel: IMainViewModel {
         service.getNews()
     }
     
-    func addItem() {
-//        var current = itemsRelay.value
-//        current.append(News(title: "Элемент \(current.count + 1)"))
-//        itemsRelay.accept(current)
+    func toggleFavorite(news: News) {
+        var current = favoriteIDsRelay.value
+        current.formSymmetricDifference([news.id])
+        favoriteIDsRelay.accept(current)
     }
     
-    func removeItem() {
-//        var current = itemsRelay.value
-//        guard !current.isEmpty else { return }
-//        current.removeLast()
-//        itemsRelay.accept(current)
+    func toggleBlocked(news: News) {
+        var current = blockedIDsRelay.value
+        current.formSymmetricDifference([news.id])
+        blockedIDsRelay.accept(current)
     }
     
+    func selectSegment(_ segment: SegmentType) {
+        selectedSegmentRelay.accept(segment)
+    }
 }
