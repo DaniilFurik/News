@@ -2,8 +2,8 @@ import Foundation
 
 enum NetworkServiceModels {
     enum Constants {
-        static let page = 5
-        static let pageSize = 50
+        static let page = 0
+        static let pageSize = 9
     }
 
     enum Parameters {
@@ -16,7 +16,7 @@ enum NetworkServiceModels {
     }
     
     enum AuthorizationHeader {
-        static let name = "firstname-lastname"
+        static let name = "daniil-furik"
         static let authorization = "Authorization"
     }
     

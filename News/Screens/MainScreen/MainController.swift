@@ -33,10 +33,18 @@ class MainController: UIViewController {
         tableView.backgroundColor = .clear
         tableView.tableHeaderView = segmentControl
         tableView.verticalScrollIndicatorInsets.right = -Constants.horizontalSpacing
+        tableView.delaysContentTouches = false
         //tableView.refreshControl = refreshControl
         tableView.clipsToBounds = false
         tableView.register(NewsTableViewCell.self, forCellReuseIdentifier: NewsTableViewCell.identifier)
         return tableView
+    }()
+    
+    private let emptyNewsView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isHidden = true
+        return view
     }()
     
     private let emptyFavoriteView: UIView = {
@@ -68,7 +76,7 @@ class MainController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        viewModel.loadNews()
+        loadNews()
     }
 }
 
@@ -78,6 +86,54 @@ private extension MainController {
     func configureUI() {
         view.backgroundColor = GlobalConstants.Colors.beigeColor
         title = Texts.titleText
+        
+        tableView.addSubview(emptyNewsView)
+        emptyNewsView.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.height.equalTo(132)
+            make.width.equalToSuperview().multipliedBy(0.8)
+        }
+        
+        var config = UIButton.Configuration.plain()
+        config.title = Texts.resfreshText
+        config.image = Images.refreshImage
+        config.imagePlacement = .trailing
+        config.imagePadding = Constants.horizontalSpacing
+        
+        let emptyNewsButton = UIButton(type: .system)
+        emptyNewsButton.backgroundColor = Colors.blueColor
+        emptyNewsButton.tintColor = .white
+        emptyNewsButton.roundConrers(cornerRadius: Constants.smallRadius)
+        emptyNewsButton.configuration = config
+        emptyNewsView.addSubview(emptyNewsButton)
+        emptyNewsButton.snp.makeConstraints { make in
+            make.centerX.bottom.equalToSuperview()
+            make.height.equalTo(44)
+            make.width.equalToSuperview()
+        }
+        emptyNewsButton.rx.tap.subscribe(onNext: { [weak self] in
+            self?.loadNews()
+        }).disposed(by: disposeBag)
+        
+        let emptyNewsLabel = UILabel()
+        emptyNewsLabel.font = Fonts.primaryFont
+        emptyNewsLabel.textColor = Colors.blackColor
+        emptyNewsLabel.text = Texts.emptyNewsText
+        emptyNewsLabel.setContentHuggingPriority(.required, for: .vertical)
+        emptyNewsView.addSubview(emptyNewsLabel)
+        emptyNewsLabel.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.bottom.equalTo(emptyNewsButton.snp.top).offset(-Constants.verticalSpacing)
+        }
+        
+        let emptyNewsImage = UIImageView(image: Images.emptyNewsImage)
+        emptyNewsImage.tintColor = Colors.blueColor
+        emptyNewsView.addSubview(emptyNewsImage)
+        emptyNewsImage.snp.makeConstraints { make in
+            make.top.centerX.equalToSuperview()
+            make.bottom.equalTo(emptyNewsLabel.snp.top).offset(-Constants.verticalSpacing)
+            make.width.equalTo(emptyNewsImage.snp.height)
+        }
         
         tableView.addSubview(emptyFavoriteView)
         emptyFavoriteView.snp.makeConstraints { make in
@@ -152,13 +208,24 @@ private extension MainController {
             .disposed(by: disposeBag)
     }
     
+    func loadNews() {
+        //refresh
+        viewModel.loadNews()
+    }
+    
     func bindViewModel() {
         viewModel.filteredNews
             .bind(to: tableView.rx.items(
                 cellIdentifier: NewsTableViewCell.identifier,
                 cellType: NewsTableViewCell.self
             )) { index, item, cell in
-                cell.configure(with: item, viewModel: self.viewModel)
+                cell.configure(with: item,
+                               viewModel: self.viewModel,
+                               segment: SegmentType(rawValue: self.segmentControl.selectedSegmentIndex) ?? .all,
+                               showAlert: { [weak self] title, message, buttonText, handler in
+                    self?.showAlert(title: title, message: message, buttonText: buttonText, handler: handler)
+                }
+                )
             }
             .disposed(by: disposeBag)
         
@@ -188,6 +255,7 @@ private extension MainController {
                 let isFavorites = segment == .favorites
                 let isBlocked = segment == .blocked
 
+                self.emptyNewsView.isHidden = !(isEmpty && !(isFavorites || isBlocked))
                 self.emptyFavoriteView.isHidden = !(isFavorites && isEmpty)
                 self.emptyBlockedView.isHidden = !(isBlocked && isEmpty)
             })

@@ -1,19 +1,18 @@
 import UIKit
 
 extension UIViewController {
-    func showWarningAlert(with message: String) {
-        let alert = UIAlertController(title: message, message: .empty, preferredStyle: .alert)
+    func showWarningAlert(with title: String) {
+        let alert = UIAlertController(title: title, message: .empty, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .cancel))
         present(alert, animated: true)
     }
     
-    func showAlert() {
-        let alert = UIAlertController(title: "", message: .empty, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "", style: .default, handler: { _ in
-            
+    func showAlert(title: String, message: String, buttonText: String, handler: @escaping (() -> Void) ) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: buttonText, style: .destructive, handler: { _ in
+            handler()
         }))
-        alert.addAction(UIAlertAction(title: "No", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Destructive", style: .destructive, handler: { _ in }))
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)
     }
 }

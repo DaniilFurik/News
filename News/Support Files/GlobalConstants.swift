@@ -13,6 +13,8 @@ enum GlobalConstants {
         static let verticalSpacing: CGFloat = 8
         static let horizontalSpacing: CGFloat = 16
         static let cellSize: CGFloat = 126
+        static let bigRadius: CGFloat = 8
+        static let smallRadius = bigRadius / 2
     }
     
     enum Fonts {

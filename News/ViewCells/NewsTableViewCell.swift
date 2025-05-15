@@ -60,10 +60,9 @@ class NewsTableViewCell: UITableViewCell {
     }()
     
     private lazy var menuButton: UIButton = {
-        let button = UIButton()
+        let button = UIButton(type: .system)
         button.tintColor = Colors.greyColor
         button.setBackgroundImage(Images.menuImage, for: .normal)
-        button.menu = getMenu()
         button.showsMenuAsPrimaryAction = true
         return button
     }()
@@ -72,6 +71,7 @@ class NewsTableViewCell: UITableViewCell {
     private var viewModel: IMainViewModel?
     private var linkView: LPLinkView?
     private var currentURL: URL?
+    private var showAlert: ((String, String, String, @escaping () -> Void) -> Void)?
     
     // MARK: - Static Metadata Cache
     private var metadataTask: Task<Void, Never>? = nil
@@ -105,12 +105,20 @@ class NewsTableViewCell: UITableViewCell {
 extension NewsTableViewCell {
     // MARK: - Methods
     
-    func configure(with news: News, viewModel: IMainViewModel) {
-        self.viewModel = viewModel
+    func configure(
+        with news: News,
+        viewModel: IMainViewModel,
+        segment: SegmentType,
+        showAlert: ((String, String, String, @escaping () -> Void) -> Void)? = nil
+    ) {
         self.news = news
+        self.showAlert = showAlert
+        self.viewModel = viewModel
         titleLabel.text = news.title
         categoryLabel.text = news.sectionName
         dateLabel.text = news.date.getFormattedDate()
+
+        menuButton.menu = getMenu(for: segment)
         
         if let url = URL(string: news.url) {
             currentURL = url
@@ -128,7 +136,7 @@ private extension NewsTableViewCell {
         
         let containerView = UIView()
         containerView.backgroundColor = .systemBackground
-        containerView.roundConrers(cornerRadius: Constants.bigRadius)
+        containerView.roundConrers(cornerRadius: GlobalConstants.Constants.bigRadius)
         contentView.addSubview(containerView)
 
         containerView.snp.makeConstraints { make in
@@ -137,7 +145,7 @@ private extension NewsTableViewCell {
             make.bottom.equalToSuperview().inset(GlobalConstants.Constants.verticalSpacing)
         }
 
-        newsImageView.roundConrers(cornerRadius: Constants.smallRadius)
+        newsImageView.roundConrers(cornerRadius: GlobalConstants.Constants.smallRadius)
         containerView.addSubview(newsImageView)
 
         newsImageView.snp.makeConstraints { make in
@@ -188,21 +196,43 @@ private extension NewsTableViewCell {
         previewImage = Images.newsImage
     }
     
-    func getMenu() -> UIMenu {
-        let menu = UIMenu(title: .empty, children: [
-            UIAction(title: Texts.addToFavorite, image: Images.heartImage) { [self] _ in
-                if let news {
-                    viewModel?.toggleFavorite(news: news)
+    func getMenu(for segment: SegmentType) -> UIMenu {
+        guard let news else { return UIMenu() }
+
+        switch segment {
+        case .all:
+            return UIMenu(title: .empty, children: [
+                UIAction(title: Texts.addToFavorite, image: Images.heartImage) { _ in
+                    self.viewModel?.toggleFavorite(news: news)
+                },
+                UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
+                    if let showAlert = self.showAlert{
+                        showAlert(Texts.titleBlock, Texts.messageBlock, Texts.block, { self.viewModel?.toggleBlocked(news: news) })
+                    }
                 }
-            },
-            UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { [self] _ in
-                if let news {
-                    viewModel?.toggleBlocked(news: news)
+            ])
+            
+        case .favorites:
+            return UIMenu(title: .empty, children: [
+                UIAction(title: Texts.removeFromFavorite, image: Images.heartSlashImage) { _ in
+                    self.viewModel?.toggleFavorite(news: news)
+                },
+                UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
+                    if let showAlert = self.showAlert{
+                        showAlert(Texts.titleBlock, Texts.messageBlock, Texts.block, { self.viewModel?.toggleBlocked(news: news) })
+                    }
                 }
-            }
-        ])
-        
-        return menu
+            ])
+            
+        case .blocked:
+            return UIMenu(title: .empty, children: [
+                UIAction(title: Texts.unblock, image: Images.unblockImage, attributes: .destructive) { _ in
+                    if let showAlert = self.showAlert{
+                        showAlert(Texts.titleUnblock, Texts.messageUnblock, Texts.unblock, { self.viewModel?.toggleBlocked(news: news) })
+                    }
+                }
+            ])
+        }
     }
     
     private func loadPreviewImage(for url: URL) {
