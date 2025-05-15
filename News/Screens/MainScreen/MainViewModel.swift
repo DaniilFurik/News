@@ -12,7 +12,7 @@ enum SegmentType: Int {
 
 protocol IMainViewModel {
     var publishError: PublishRelay<String> { get }
-    var filteredNews: Observable<[News]> { get }
+    var combinedItems: Observable<[MainModels.TableItem]> { get }
     
     func loadNews()
     func toggleFavorite(news: News)
@@ -24,20 +24,23 @@ final class MainViewModel {
     // MARK: - Typealiases
     
     typealias Errors = GlobalConstants.Errors
+    typealias Constants = GlobalConstants.Constants
+    typealias TableItem = MainModels.TableItem
     
     // MARK: - Properties
     
     let publishError = PublishRelay<String>()
     
-    private let service: INetworkService = NetworkService()
+    private let networkService: INetworkService = NetworkService()
     private let disposeBag = DisposeBag()
     
     private let allNewsRelay = BehaviorRelay<[News]>(value: [])
     private let favoriteIDsRelay = BehaviorRelay<Set<String>>(value: [])
     private let blockedIDsRelay = BehaviorRelay<Set<String>>(value: [])
     private let selectedSegmentRelay = BehaviorRelay<SegmentType>(value: .all)
+    private let navigationRelay = BehaviorRelay<[NavigationDataResponse]>(value: [])
 
-    var filteredNews: Observable<[News]> {
+    private var filteredNews: Observable<[News]> {
         Observable.combineLatest(
             allNewsRelay,
             favoriteIDsRelay,
@@ -56,17 +59,37 @@ final class MainViewModel {
         }
     }
     
-    init() {
-        service.publishResult.subscribe(onNext: { [weak self] data in
-            guard let self = self else { return }
-            guard let data = data else {
-                self.publishError.accept(Errors.genericErrorMessage)
-                return
+    var combinedItems: Observable<[TableItem]> {
+        Observable.combineLatest(filteredNews, navigationRelay)
+            .filter { _, navigationBlocks in
+                !navigationBlocks.isEmpty
             }
-            
-            let news = self.getFormattedNews(from: data.results)
-            self.allNewsRelay.accept(news)
-        }).disposed(by: disposeBag)
+            .map { news, navigationBlocks in
+                var result: [TableItem] = []
+                for (index, newsItem) in news.enumerated() {
+                    result.append(.news(newsItem))
+                    if (index + 1) % Constants.blockInterval == .zero {
+                        let navIndex = ((index + 1) / Constants.blockInterval - 1) % navigationBlocks.count
+                        result.append(.navigation(navigationBlocks[navIndex]))
+                    }
+                }
+                return result
+            }
+    }
+    
+    init() {
+        Observable.combineLatest(networkService.publishNews, networkService.publishNavigation)
+            .compactMap { news, navigation -> (NewsDataResponse, [NavigationDataResponse])? in
+                guard let news = news, let navigation = navigation else { return nil }
+                return (news, navigation)
+            }
+            .observe(on: MainScheduler.instance)
+            .subscribe(onNext: { news, navigation in
+                let newss = self.getFormattedNews(from: news.results)
+                self.allNewsRelay.accept(newss)
+                self.navigationRelay.accept(navigation)
+            })
+            .disposed(by: disposeBag)
     }
 }
 
@@ -92,7 +115,11 @@ extension MainViewModel: IMainViewModel {
     // MARK: - Methods
     
     func loadNews() {
-        service.getNews()
+        networkService.getNews()
+        
+        if navigationRelay.value.isEmpty {
+            networkService.getNavigation()
+        }
     }
     
     func toggleFavorite(news: News) {

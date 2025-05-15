@@ -18,4 +18,9 @@ enum MainModels {
         static let emptyBlockedImage = UIImage(systemName: "circle.slash")
         static let refreshImage = UIImage(systemName: "arrow.clockwise")
     }
+    
+    enum TableItem {
+        case news(News)
+        case navigation(NavigationDataResponse)
+    }
 }

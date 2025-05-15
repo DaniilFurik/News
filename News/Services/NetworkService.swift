@@ -5,7 +5,9 @@ import RxRelay
 
 protocol INetworkService {
     func getNews()
-    var publishResult: PublishRelay<DataResponse?> { get set }
+    func getNavigation()
+    var publishNews: PublishRelay<NewsDataResponse?> { get set }
+    var publishNavigation: PublishRelay<[NavigationDataResponse]?> { get set }
 }
 
 final class NetworkService {
@@ -18,12 +20,13 @@ final class NetworkService {
     
     // MARK: - Properties
     
-    var publishResult = PublishRelay<DataResponse?>()
+    var publishNews = PublishRelay<NewsDataResponse?>()
+    var publishNavigation = PublishRelay<[NavigationDataResponse]?>()
 }
-extension NetworkService {
+private extension NetworkService {
     // MARK: - Private Methods
     
-    private func getURLRequest(urlComponents: URLComponents?) -> URLRequest? {
+    func getURLRequest(urlComponents: URLComponents?) -> URLRequest? {
         guard let url = urlComponents?.url else { return nil }
         
         var urlRequest = URLRequest(url: url)
@@ -33,7 +36,7 @@ extension NetworkService {
         return urlRequest
     }
     
-    private func handleDecodingError(_ error: Error) {
+    func handleDecodingError(_ error: Error) {
         switch error {
         case let DecodingError.dataCorrupted(context):
             print("Data corrupted: \(context)")
@@ -63,18 +66,40 @@ extension NetworkService: INetworkService {
             Task {
                 do {
                     let (data, _) = try await URLSession.shared.data(for: request)
-                    let response = try JSONDecoder().decode(Response.self, from: data)
-                    publishResult.accept(response.response)
+                    let response = try JSONDecoder().decode(DataResponse.self, from: data)
+                    publishNews.accept(response.response)
                 } catch let error as DecodingError {
                     self.handleDecodingError(error)
-                    publishResult.accept(nil)
+                    publishNews.accept(nil)
                 } catch {
                     print(error.localizedDescription)
-                    publishResult.accept(nil)
+                    publishNews.accept(nil)
                 }
             }
         } else {
-            publishResult.accept(nil)
+            publishNews.accept(nil)
+        }
+    }
+    
+    func getNavigation() {
+        let urlComponents = URLComponents(string: Parameters.baseURL + Parameters.navigation)
+        
+        if let request = getURLRequest(urlComponents: urlComponents) {
+            Task {
+                do {
+                    let (data, _) = try await URLSession.shared.data(for: request)
+                    let response = try JSONDecoder().decode(NavigationResponse.self, from: data)
+                    publishNavigation.accept(response.results)
+                } catch let error as DecodingError {
+                    handleDecodingError(error)
+                    publishNavigation.accept(nil)
+                } catch {
+                    print(error.localizedDescription)
+                    publishNavigation.accept(nil)
+                }
+            }
+        } else {
+            publishNavigation.accept(nil)
         }
     }
 }

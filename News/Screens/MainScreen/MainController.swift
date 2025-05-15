@@ -27,7 +27,6 @@ class MainController: UIViewController {
     
     private lazy var tableView: UITableView = {
         let tableView = UITableView()
-        tableView.rowHeight = Constants.cellSize
         tableView.estimatedRowHeight = UITableView.automaticDimension 
         tableView.separatorColor = .clear
         tableView.backgroundColor = .clear
@@ -37,6 +36,7 @@ class MainController: UIViewController {
         //tableView.refreshControl = refreshControl
         tableView.clipsToBounds = false
         tableView.register(NewsTableViewCell.self, forCellReuseIdentifier: NewsTableViewCell.identifier)
+        tableView.delegate = self
         return tableView
     }()
     
@@ -197,13 +197,18 @@ private extension MainController {
             .do(onNext: { [weak tableView] indexPath in
                 tableView?.deselectRow(at: indexPath, animated: true)
             })
-            .withLatestFrom(viewModel.filteredNews) { indexPath, data in
+            .withLatestFrom(viewModel.combinedItems) { indexPath, data in
                 return data[indexPath.row]
             }
             .subscribe(onNext: { selectedItem in
-                if let url = URL(string: selectedItem.url) {
-                    UIApplication.shared.open(url)
-                }
+                switch selectedItem {
+                    case .news(let news):
+                        if let url = URL(string: news.url) {
+                            UIApplication.shared.open(url)
+                        }
+                    case .navigation:
+                        break
+                    }
             })
             .disposed(by: disposeBag)
     }
@@ -214,7 +219,7 @@ private extension MainController {
     }
     
     func bindViewModel() {
-        viewModel.filteredNews
+        viewModel.combinedItems
             .bind(to: tableView.rx.items(
                 cellIdentifier: NewsTableViewCell.identifier,
                 cellType: NewsTableViewCell.self
@@ -224,8 +229,7 @@ private extension MainController {
                                segment: SegmentType(rawValue: self.segmentControl.selectedSegmentIndex) ?? .all,
                                showAlert: { [weak self] title, message, buttonText, handler in
                     self?.showAlert(title: title, message: message, buttonText: buttonText, handler: handler)
-                }
-                )
+                })
             }
             .disposed(by: disposeBag)
         
@@ -246,7 +250,7 @@ private extension MainController {
             })
             .disposed(by: disposeBag)
         
-        Observable.combineLatest(viewModel.filteredNews, selectedSegment)
+        Observable.combineLatest(viewModel.combinedItems, selectedSegment)
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] news, segment in
                 guard let self = self else { return }
@@ -260,5 +264,16 @@ private extension MainController {
                 self.emptyBlockedView.isHidden = !(isBlocked && isEmpty)
             })
             .disposed(by: disposeBag)
+    }
+}
+
+extension MainController: UITableViewDelegate {
+    // MARK: - TableView Methods
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        if (indexPath.row + 1) % (Constants.blockInterval + 1) == .zero {
+            return  Constants.cellNavigationSize
+        } else {
+            return Constants.cellNewsSize
+        }
     }
 }

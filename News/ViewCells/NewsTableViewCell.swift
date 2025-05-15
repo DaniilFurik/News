@@ -17,6 +17,10 @@ class NewsTableViewCell: UITableViewCell {
     
     static var identifier: String { "\(Self.self)" }
     
+    // MARK: - News Properties
+    
+    private let containerNewsView = UIView()
+    
     private let newsImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.backgroundColor = Colors.beigeColor
@@ -59,7 +63,7 @@ class NewsTableViewCell: UITableViewCell {
         return label
     }()
     
-    private lazy var menuButton: UIButton = {
+    private let menuButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = Colors.greyColor
         button.setBackgroundImage(Images.menuImage, for: .normal)
@@ -73,6 +77,43 @@ class NewsTableViewCell: UITableViewCell {
     private var currentURL: URL?
     private var showAlert: ((String, String, String, @escaping () -> Void) -> Void)?
     
+    // MARK: - Navigation Properties
+    
+    private let containerNavigationView = UIView()
+    
+    private let infoImageView: UIImageView = {
+       let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFit
+        imageView.backgroundColor = Colors.blueColor
+        return imageView
+    }()
+    
+    private let titleNavigationLabel: UILabel = {
+        let label = UILabel()
+        label.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        label.numberOfLines = .zero
+        label.textColor = Colors.blackColor
+        label.font = Fonts.primaryFont
+        return label
+    }()
+    
+    private let subtitleLabel: UILabel = {
+        let label = UILabel()
+        label.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        label.numberOfLines = .zero
+        label.textColor = Colors.greyColor
+        label.font = Fonts.secondaryFont
+        return label
+    }()
+    
+    private let navigationButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.tintColor = .white
+        button.backgroundColor = Colors.blueColor
+        button.roundConrers(cornerRadius: GlobalConstants.Constants.bigRadius)
+        return button
+    }()
+    
     // MARK: - Static Metadata Cache
     private var metadataTask: Task<Void, Never>? = nil
     private static var imageCache: [URL: UIImage] = [:]
@@ -81,7 +122,8 @@ class NewsTableViewCell: UITableViewCell {
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
-        configureUI()
+        configureUINews()
+        configureUINavigation()
     }
     
     required init?(coder: NSCoder) {
@@ -91,14 +133,21 @@ class NewsTableViewCell: UITableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         
+        containerNewsView.removeFromSuperview()
         titleLabel.text = nil
         categoryLabel.text = nil
         dateLabel.text = nil
         currentURL = nil
         previewImage = Images.newsImage
-        
         metadataTask?.cancel()
         metadataTask = nil
+        
+        containerNavigationView.removeFromSuperview()
+        infoImageView.image = nil
+        titleNavigationLabel.text = nil
+        subtitleLabel.text = nil
+        navigationButton.setTitle(nil, for: .normal)
+        navigationButton.configuration = nil
     }
 }
 
@@ -106,23 +155,46 @@ extension NewsTableViewCell {
     // MARK: - Methods
     
     func configure(
-        with news: News,
+        with item: MainModels.TableItem,
         viewModel: IMainViewModel,
         segment: SegmentType,
         showAlert: ((String, String, String, @escaping () -> Void) -> Void)? = nil
     ) {
-        self.news = news
-        self.showAlert = showAlert
-        self.viewModel = viewModel
-        titleLabel.text = news.title
-        categoryLabel.text = news.sectionName
-        dateLabel.text = news.date.getFormattedDate()
+        switch item {
+        case .news(let news):
+            showView(containerNewsView)
+            
+            self.news = news
+            self.showAlert = showAlert
+            self.viewModel = viewModel
+            titleLabel.text = news.title
+            categoryLabel.text = news.sectionName
+            dateLabel.text = news.date.getFormattedDate()
 
-        menuButton.menu = getMenu(for: segment)
-        
-        if let url = URL(string: news.url) {
-            currentURL = url
-            loadPreviewImage(for: url)
+            menuButton.menu = getMenu(for: segment)
+            
+            if let url = URL(string: news.url) {
+                currentURL = url
+                loadPreviewImage(for: url)
+            }
+        case .navigation(let block):
+            showView(containerNavigationView)
+            
+            titleNavigationLabel.text = block.title
+            subtitleLabel.text = block.subtitle
+            navigationButton.setTitle(block.buttonTitle, for: .normal)
+            
+            if let image = block.buttonSymbol {
+                infoImageView.image = UIImage(systemName: image)
+            }
+
+            if let image = block.buttonSymbol {
+                var config = UIButton.Configuration.plain()
+                config.image = UIImage(systemName: image)
+                config.imagePlacement = .trailing
+                config.imagePadding = GlobalConstants.Constants.horizontalSpacing
+                navigationButton.configuration = config
+            }
         }
     }
 }
@@ -130,23 +202,28 @@ extension NewsTableViewCell {
 private extension NewsTableViewCell {
     // MARK: - Private Methods
     
-    func configureUI() {
+    func showView(_ view: UIView) {
         backgroundColor = .clear
         selectionStyle = .none
         
-        let containerView = UIView()
-        containerView.backgroundColor = .systemBackground
-        containerView.roundConrers(cornerRadius: GlobalConstants.Constants.bigRadius)
-        contentView.addSubview(containerView)
-
-        containerView.snp.makeConstraints { make in
+        view.backgroundColor = .systemBackground
+        view.roundConrers(cornerRadius: GlobalConstants.Constants.bigRadius)
+        
+        contentView.addSubview(view)
+        view.snp.makeConstraints { make in
             make.left.right.equalToSuperview()
             make.top.equalToSuperview().offset(GlobalConstants.Constants.verticalSpacing)
             make.bottom.equalToSuperview().inset(GlobalConstants.Constants.verticalSpacing)
         }
+    }
+    
+    func configureUINavigation() {
 
+    }
+    
+    func configureUINews() {
         newsImageView.roundConrers(cornerRadius: GlobalConstants.Constants.smallRadius)
-        containerView.addSubview(newsImageView)
+        containerNewsView.addSubview(newsImageView)
 
         newsImageView.snp.makeConstraints { make in
             make.top.left.equalToSuperview().offset(Constants.cellSpacing)
@@ -154,22 +231,21 @@ private extension NewsTableViewCell {
             make.width.equalTo(newsImageView.snp.height)
         }
         
-        containerView.addSubview(menuButton)
-
+        containerNewsView.addSubview(menuButton)
         menuButton.snp.makeConstraints { make in
             make.top.equalTo(newsImageView)
             make.right.equalToSuperview().inset(Constants.cellSpacing)
             make.width.height.equalTo(Constants.menuButtonSize)
         }
         
-        containerView.addSubview(titleLabel)
+        containerNewsView.addSubview(titleLabel)
         titleLabel.snp.makeConstraints { make in
             make.left.equalTo(newsImageView.snp.right).offset(GlobalConstants.Constants.horizontalSpacing)
             make.top.equalTo(newsImageView)
             make.right.equalTo(menuButton.snp.left).offset(-GlobalConstants.Constants.horizontalSpacing)
         }
 
-        containerView.addSubview(categoryLabel)
+        containerNewsView.addSubview(categoryLabel)
         categoryLabel.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(GlobalConstants.Constants.verticalSpacing)
             make.left.equalTo(titleLabel)
@@ -179,14 +255,14 @@ private extension NewsTableViewCell {
         let circleImageView = UIImageView(image: Images.circleImage)
         circleImageView.tintColor = Colors.greyColor
         circleImageView.contentMode = .scaleAspectFit
-        containerView.addSubview(circleImageView)
+        containerNewsView.addSubview(circleImageView)
         circleImageView.snp.makeConstraints { make in
             make.centerY.equalTo(categoryLabel).offset(1)
             make.left.equalTo(categoryLabel.snp.right).offset(Constants.cellSpacing / 3)
             make.width.height.equalTo(Constants.circleSize)
         }
         
-        containerView.addSubview(dateLabel)
+        containerNewsView.addSubview(dateLabel)
         dateLabel.snp.makeConstraints { make in
             make.top.equalTo(categoryLabel)
             make.left.equalTo(circleImageView.snp.right).offset(Constants.cellSpacing / 3)
@@ -198,12 +274,14 @@ private extension NewsTableViewCell {
     
     func getMenu(for segment: SegmentType) -> UIMenu {
         guard let news else { return UIMenu() }
-
+        
         switch segment {
         case .all:
             return UIMenu(title: .empty, children: [
                 UIAction(title: Texts.addToFavorite, image: Images.heartImage) { _ in
-                    self.viewModel?.toggleFavorite(news: news)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        self.viewModel?.toggleFavorite(news: news)
+                    }
                 },
                 UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
                     if let showAlert = self.showAlert{
@@ -215,7 +293,9 @@ private extension NewsTableViewCell {
         case .favorites:
             return UIMenu(title: .empty, children: [
                 UIAction(title: Texts.removeFromFavorite, image: Images.heartSlashImage) { _ in
-                    self.viewModel?.toggleFavorite(news: news)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        self.viewModel?.toggleFavorite(news: news)
+                    }
                 },
                 UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
                     if let showAlert = self.showAlert{
