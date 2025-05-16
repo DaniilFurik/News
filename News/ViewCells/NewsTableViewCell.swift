@@ -1,6 +1,14 @@
 import LinkPresentation
+import RxSwift
 import SnapKit
 import UIKit
+
+// MARK: - Protocol
+
+protocol NewsTableViewCellDelegate: AnyObject {
+    func showConfirmAlert(title: String, message: String, buttonTitle: String, action: @escaping () -> Void)
+    func navigation(navigation: NavigationDataResponse)
+}
 
 class NewsTableViewCell: UITableViewCell {
     
@@ -16,6 +24,8 @@ class NewsTableViewCell: UITableViewCell {
     // MARK: - Properties
     
     static var identifier: String { "\(Self.self)" }
+    private weak var delegate: NewsTableViewCellDelegate?
+    private let disposeBag = DisposeBag()
     
     // MARK: - News Properties
     
@@ -75,7 +85,6 @@ class NewsTableViewCell: UITableViewCell {
     private var viewModel: IMainViewModel?
     private var linkView: LPLinkView?
     private var currentURL: URL?
-    private var showAlert: ((String, String, String, @escaping () -> Void) -> Void)?
     
     // MARK: - Navigation Properties
     
@@ -84,7 +93,7 @@ class NewsTableViewCell: UITableViewCell {
     private let infoImageView: UIImageView = {
        let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
-        imageView.backgroundColor = Colors.blueColor
+        imageView.tintColor = Colors.blueColor
         return imageView
     }()
     
@@ -92,6 +101,7 @@ class NewsTableViewCell: UITableViewCell {
         let label = UILabel()
         label.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         label.numberOfLines = .zero
+        label.textAlignment = .center
         label.textColor = Colors.blackColor
         label.font = Fonts.primaryFont
         return label
@@ -101,6 +111,7 @@ class NewsTableViewCell: UITableViewCell {
         let label = UILabel()
         label.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         label.numberOfLines = .zero
+        label.textAlignment = .center
         label.textColor = Colors.greyColor
         label.font = Fonts.secondaryFont
         return label
@@ -113,6 +124,8 @@ class NewsTableViewCell: UITableViewCell {
         button.roundConrers(cornerRadius: GlobalConstants.Constants.bigRadius)
         return button
     }()
+    
+    private var navigation: NavigationDataResponse?
     
     // MARK: - Static Metadata Cache
     private var metadataTask: Task<Void, Never>? = nil
@@ -154,53 +167,73 @@ class NewsTableViewCell: UITableViewCell {
 extension NewsTableViewCell {
     // MARK: - Methods
     
-    func configure(
-        with item: MainModels.TableItem,
-        viewModel: IMainViewModel,
-        segment: SegmentType,
-        showAlert: ((String, String, String, @escaping () -> Void) -> Void)? = nil
-    ) {
+    func configure(with item: MainModels.TableItem,viewModel: IMainViewModel,segment: SegmentType, delegate: NewsTableViewCellDelegate?) {
+        self.delegate = delegate
         switch item {
         case .news(let news):
-            showView(containerNewsView)
-            
-            self.news = news
-            self.showAlert = showAlert
-            self.viewModel = viewModel
-            titleLabel.text = news.title
-            categoryLabel.text = news.sectionName
-            dateLabel.text = news.date.getFormattedDate()
-
-            menuButton.menu = getMenu(for: segment)
-            
-            if let url = URL(string: news.url) {
-                currentURL = url
-                loadPreviewImage(for: url)
-            }
-        case .navigation(let block):
-            showView(containerNavigationView)
-            
-            titleNavigationLabel.text = block.title
-            subtitleLabel.text = block.subtitle
-            navigationButton.setTitle(block.buttonTitle, for: .normal)
-            
-            if let image = block.buttonSymbol {
-                infoImageView.image = UIImage(systemName: image)
-            }
-
-            if let image = block.buttonSymbol {
-                var config = UIButton.Configuration.plain()
-                config.image = UIImage(systemName: image)
-                config.imagePlacement = .trailing
-                config.imagePadding = GlobalConstants.Constants.horizontalSpacing
-                navigationButton.configuration = config
-            }
+            initNews(news: news, viewModel: viewModel, segment: segment)
+        case .navigation(let navigation):
+            initNavigations(navigation: navigation)
         }
     }
 }
 
 private extension NewsTableViewCell {
     // MARK: - Private Methods
+    
+    func initNews(news: News, viewModel: IMainViewModel, segment: SegmentType) {
+        showView(containerNewsView)
+        
+        self.news = news
+        self.viewModel = viewModel
+        titleLabel.text = news.title
+        categoryLabel.text = news.sectionName
+        dateLabel.text = news.date.getFormattedDate()
+
+        menuButton.menu = getMenu(for: segment)
+        
+        if let url = URL(string: news.url) {
+            currentURL = url
+            loadPreviewImage(for: url)
+        }
+    }
+    
+    func initNavigations(navigation: NavigationDataResponse) {
+        showView(containerNavigationView)
+        
+        self.navigation = navigation
+        
+        titleNavigationLabel.text = navigation.title
+        subtitleLabel.text = navigation.subtitle
+        navigationButton.setTitle(navigation.buttonTitle, for: .normal)
+        
+        if let image = navigation.titleSymbol {
+            infoImageView.image = UIImage(systemName: image)
+            infoImageView.snp.updateConstraints { make in
+                make.height.equalTo(Constants.cellSpacing * 2)
+            }
+            
+            titleNavigationLabel.snp.updateConstraints { make in
+                make.top.equalTo(infoImageView.snp.bottom).offset(GlobalConstants.Constants.verticalSpacing)
+            }
+        } else {
+            infoImageView.snp.updateConstraints { make in
+                make.height.equalTo(CGFloat.zero)
+            }
+            
+            titleNavigationLabel.snp.updateConstraints { make in
+                make.top.equalTo(infoImageView.snp.bottom).offset(CGFloat.zero)
+            }
+        }
+
+        if let image = navigation.buttonSymbol {
+            var config = UIButton.Configuration.plain()
+            config.image = UIImage(systemName: image)
+            config.imagePlacement = .trailing
+            config.imagePadding = GlobalConstants.Constants.horizontalSpacing
+            navigationButton.configuration = config
+        }
+    }
     
     func showView(_ view: UIView) {
         backgroundColor = .clear
@@ -218,7 +251,44 @@ private extension NewsTableViewCell {
     }
     
     func configureUINavigation() {
-
+        let containerView = UIView()
+        containerView.backgroundColor = .clear
+        containerNavigationView.addSubview(containerView)
+        containerView.snp.makeConstraints { make in
+            make.centerY.left.right.equalToSuperview()
+        }
+        
+        containerView.addSubview(infoImageView)
+        infoImageView.snp.makeConstraints { make in
+            make.width.height.equalTo(Constants.cellSpacing * 2)
+            make.top.centerX.equalToSuperview()
+        }
+        
+        containerView.addSubview(titleNavigationLabel)
+        titleNavigationLabel.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.top.equalTo(infoImageView.snp.bottom).offset(GlobalConstants.Constants.verticalSpacing)
+        }
+        
+        containerView.addSubview(subtitleLabel)
+        subtitleLabel.snp.makeConstraints { make in
+            make.centerX.equalTo(titleNavigationLabel)
+            make.top.equalTo(titleNavigationLabel.snp.bottom).offset(GlobalConstants.Constants.verticalSpacing)
+        }
+        
+        containerView.addSubview(navigationButton)
+        navigationButton.snp.makeConstraints { make in
+            make.top.equalTo(subtitleLabel.snp.bottom).offset(Constants.cellSpacing)
+            make.left.equalToSuperview().offset(Constants.cellSpacing)
+            make.right.equalToSuperview().inset(Constants.cellSpacing)
+            make.bottom.equalToSuperview()
+            make.height.equalTo(44)
+        }
+        navigationButton.rx.tap.subscribe(onNext: { [weak self] in
+            if let self, let navigation {
+                delegate?.navigation(navigation: navigation)
+            }
+        }).disposed(by: disposeBag)
     }
     
     func configureUINews() {
@@ -280,13 +350,16 @@ private extension NewsTableViewCell {
             return UIMenu(title: .empty, children: [
                 UIAction(title: Texts.addToFavorite, image: Images.heartImage) { _ in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        self.viewModel?.toggleFavorite(news: news)
+                        self.viewModel?.insertFavorite(news: news)
                     }
                 },
                 UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
-                    if let showAlert = self.showAlert{
-                        showAlert(Texts.titleBlock, Texts.messageBlock, Texts.block, { self.viewModel?.toggleBlocked(news: news) })
-                    }
+                    self.delegate?.showConfirmAlert(
+                        title: Texts.titleBlock,
+                        message: Texts.messageBlock,
+                        buttonTitle: Texts.block,
+                        action: { self.viewModel?.insertBlocked(news: news)
+                        })
                 }
             ])
             
@@ -294,22 +367,28 @@ private extension NewsTableViewCell {
             return UIMenu(title: .empty, children: [
                 UIAction(title: Texts.removeFromFavorite, image: Images.heartSlashImage) { _ in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        self.viewModel?.toggleFavorite(news: news)
+                        self.viewModel?.removeFavorite(news: news)
                     }
                 },
                 UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
-                    if let showAlert = self.showAlert{
-                        showAlert(Texts.titleBlock, Texts.messageBlock, Texts.block, { self.viewModel?.toggleBlocked(news: news) })
-                    }
+                    self.delegate?.showConfirmAlert(
+                        title: Texts.titleBlock,
+                        message: Texts.messageBlock,
+                        buttonTitle: Texts.block,
+                        action: { self.viewModel?.insertBlocked(news: news)
+                        })
                 }
             ])
             
         case .blocked:
             return UIMenu(title: .empty, children: [
                 UIAction(title: Texts.unblock, image: Images.unblockImage, attributes: .destructive) { _ in
-                    if let showAlert = self.showAlert{
-                        showAlert(Texts.titleUnblock, Texts.messageUnblock, Texts.unblock, { self.viewModel?.toggleBlocked(news: news) })
-                    }
+                    self.delegate?.showConfirmAlert(
+                        title: Texts.titleUnblock,
+                        message: Texts.messageUnblock,
+                        buttonTitle: Texts.unblock,
+                        action: { self.viewModel?.removeBlocked(news: news)
+                        })
                 }
             ])
         }

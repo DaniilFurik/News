@@ -12,6 +12,7 @@ class MainController: UIViewController {
 
     typealias Texts = MainModels.Texts
     typealias Images = MainModels.Images
+    typealias NavigationType = MainModels.NavigationType
     
     // MARK: - Properties
     
@@ -61,6 +62,7 @@ class MainController: UIViewController {
         return view
     }()
     
+    private let router: IMainRouter = MainRouter()
     private let viewModel: IMainViewModel = MainViewModel()
     private let disposeBag = DisposeBag()
     
@@ -227,9 +229,8 @@ private extension MainController {
                 cell.configure(with: item,
                                viewModel: self.viewModel,
                                segment: SegmentType(rawValue: self.segmentControl.selectedSegmentIndex) ?? .all,
-                               showAlert: { [weak self] title, message, buttonText, handler in
-                    self?.showAlert(title: title, message: message, buttonText: buttonText, handler: handler)
-                })
+                               delegate: self
+                )
             }
             .disposed(by: disposeBag)
         
@@ -275,5 +276,20 @@ extension MainController: UITableViewDelegate {
         } else {
             return Constants.cellNewsSize
         }
+    }
+}
+
+extension MainController: NewsTableViewCellDelegate {
+    // MARK: - Cell Delegate Methods
+    
+    func showConfirmAlert(title: String, message: String, buttonTitle buttonText: String, action handler: @escaping () -> Void) {
+        self.showAlert(title: title, message: message, buttonText: buttonText, handler: handler)
+    }
+    
+    func navigation(navigation: NavigationDataResponse) {
+        let navigationType = NavigationType(rawValue: navigation.navigation)
+        let controller = InfoViewController()
+        controller.initData(navigation: navigation)
+        router.showViewController(from: self, to: controller, with: navigationType)
     }
 }

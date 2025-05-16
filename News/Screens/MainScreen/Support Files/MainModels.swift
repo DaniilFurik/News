@@ -23,4 +23,19 @@ enum MainModels {
         case news(News)
         case navigation(NavigationDataResponse)
     }
+    
+    enum NavigationType: String {
+        case push
+        case modal
+        case fullScreen
+
+        init(rawValue: String) {
+            switch rawValue {
+            case "push": self = .push
+            case "modal": self = .modal
+            case "full_screen": self = .fullScreen
+            default: self = .push
+            }
+        }
+    }
 }

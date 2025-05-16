@@ -15,8 +15,10 @@ protocol IMainViewModel {
     var combinedItems: Observable<[MainModels.TableItem]> { get }
     
     func loadNews()
-    func toggleFavorite(news: News)
-    func toggleBlocked(news: News)
+    func insertFavorite(news: News)
+    func removeFavorite(news: News)
+    func insertBlocked(news: News)
+    func removeBlocked(news: News)
     func selectSegment(_ segment: SegmentType)
 }
 
@@ -122,16 +124,36 @@ extension MainViewModel: IMainViewModel {
         }
     }
     
-    func toggleFavorite(news: News) {
+    func insertFavorite(news: News) {
         var current = favoriteIDsRelay.value
-        current.formSymmetricDifference([news.id])
-        favoriteIDsRelay.accept(current)
+        if !current.contains(news.id) {
+            current.insert(news.id)
+            favoriteIDsRelay.accept(current)
+        }
     }
     
-    func toggleBlocked(news: News) {
+    func removeFavorite(news: News) {
+        var current = favoriteIDsRelay.value
+        if current.contains(news.id) {
+            current.remove(news.id)
+            favoriteIDsRelay.accept(current)
+        }
+    }
+    
+    func insertBlocked(news: News) {
         var current = blockedIDsRelay.value
-        current.formSymmetricDifference([news.id])
-        blockedIDsRelay.accept(current)
+        if !current.contains(news.id) {
+            current.insert(news.id)
+            blockedIDsRelay.accept(current)
+        }
+    }
+    
+    func removeBlocked(news: News) {
+        var current = blockedIDsRelay.value
+        if current.contains(news.id) {
+            current.remove(news.id)
+            blockedIDsRelay.accept(current)
+        }
     }
     
     func selectSegment(_ segment: SegmentType) {
