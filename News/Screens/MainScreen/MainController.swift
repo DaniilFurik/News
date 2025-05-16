@@ -34,7 +34,6 @@ class MainController: UIViewController {
         tableView.tableHeaderView = segmentControl
         tableView.verticalScrollIndicatorInsets.right = -Constants.horizontalSpacing
         tableView.delaysContentTouches = false
-        //tableView.refreshControl = refreshControl
         tableView.clipsToBounds = false
         tableView.register(NewsTableViewCell.self, forCellReuseIdentifier: NewsTableViewCell.identifier)
         tableView.delegate = self
@@ -88,6 +87,8 @@ private extension MainController {
     func configureUI() {
         view.backgroundColor = GlobalConstants.Colors.beigeColor
         title = Texts.titleText
+        
+        tableView.addSubview(refreshControl)
         
         tableView.addSubview(emptyNewsView)
         emptyNewsView.snp.makeConstraints { make in
@@ -194,34 +195,17 @@ private extension MainController {
             make.bottom.equalToSuperview()
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
         }
-        
-        tableView.rx.itemSelected
-            .do(onNext: { [weak tableView] indexPath in
-                tableView?.deselectRow(at: indexPath, animated: true)
-            })
-            .withLatestFrom(viewModel.combinedItems) { indexPath, data in
-                return data[indexPath.row]
-            }
-            .subscribe(onNext: { selectedItem in
-                switch selectedItem {
-                    case .news(let news):
-                        if let url = URL(string: news.url) {
-                            UIApplication.shared.open(url)
-                        }
-                    case .navigation:
-                        break
-                    }
-            })
-            .disposed(by: disposeBag)
     }
     
     func loadNews() {
-        //refresh
         viewModel.loadNews()
     }
     
     func bindViewModel() {
         viewModel.combinedItems
+            .do(onNext: { _ in
+                self.refreshControl.endRefreshing()
+            })
             .bind(to: tableView.rx.items(
                 cellIdentifier: NewsTableViewCell.identifier,
                 cellType: NewsTableViewCell.self
@@ -238,6 +222,7 @@ private extension MainController {
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] error in
                 self?.showWarningAlert(with: error)
+                self?.refreshControl.endRefreshing()
             })
             .disposed(by: disposeBag)
         
@@ -263,6 +248,31 @@ private extension MainController {
                 self.emptyNewsView.isHidden = !(isEmpty && !(isFavorites || isBlocked))
                 self.emptyFavoriteView.isHidden = !(isFavorites && isEmpty)
                 self.emptyBlockedView.isHidden = !(isBlocked && isEmpty)
+            })
+            .disposed(by: disposeBag)
+        
+        tableView.rx.itemSelected
+            .do(onNext: { [weak tableView] indexPath in
+                tableView?.deselectRow(at: indexPath, animated: true)
+            })
+            .withLatestFrom(viewModel.combinedItems) { indexPath, data in
+                return data[indexPath.row]
+            }
+            .subscribe(onNext: { selectedItem in
+                switch selectedItem {
+                    case .news(let news):
+                        if let url = URL(string: news.url) {
+                            UIApplication.shared.open(url)
+                        }
+                    case .navigation:
+                        break
+                    }
+            })
+            .disposed(by: disposeBag)
+        
+        refreshControl.rx.controlEvent(.valueChanged)
+            .subscribe(onNext: { [weak self] in
+                self?.loadNews()
             })
             .disposed(by: disposeBag)
     }
