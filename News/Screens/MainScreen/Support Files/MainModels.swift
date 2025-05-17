@@ -38,4 +38,8 @@ enum MainModels {
             }
         }
     }
+    
+    enum Constants {
+        static let defaultPage = 1
+    }
 }

@@ -4,7 +4,7 @@ import RxRelay
 // MARK: - Protocol
 
 protocol INetworkService {
-    func getNews()
+    func getNews(page: Int)
     func getNavigation()
     var publishNews: PublishRelay<NewsDataResponse?> { get set }
     var publishNavigation: PublishRelay<[NavigationDataResponse]?> { get set }
@@ -55,10 +55,10 @@ private extension NetworkService {
 extension NetworkService: INetworkService {
     // MARK: - Methods
     
-    func getNews() {
+    func getNews(page: Int) {
         var urlComponents = URLComponents(string: Parameters.baseURL + Parameters.guardian)
         urlComponents?.queryItems = [
-            URLQueryItem(name: Parameters.page, value: Constants.page.description),
+            URLQueryItem(name: Parameters.page, value: page.description),
             URLQueryItem(name: Parameters.pageSize, value: Constants.pageSize.description),
         ]
         

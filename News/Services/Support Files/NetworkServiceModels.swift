@@ -2,8 +2,7 @@ import Foundation
 
 enum NetworkServiceModels {
     enum Constants {
-        static let page = 1
-        static let pageSize = 13
+        static let pageSize = 5
     }
 
     enum Parameters {

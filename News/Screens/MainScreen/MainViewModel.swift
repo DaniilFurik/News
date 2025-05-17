@@ -13,7 +13,9 @@ enum SegmentType: Int {
 protocol IMainViewModel {
     var publishError: PublishRelay<String> { get }
     var combinedItems: Observable<[MainModels.TableItem]> { get }
+    var isLoading: Observable<Bool> { get }
     
+    func loadLatestNews()
     func loadNews()
     func insertFavorite(news: News)
     func removeFavorite(news: News)
@@ -33,6 +35,8 @@ final class MainViewModel {
     
     let publishError = PublishRelay<String>()
     
+    private var currentPage = MainModels.Constants.defaultPage
+    
     private let networkService: INetworkService = NetworkService()
     private let disposeBag = DisposeBag()
     
@@ -41,6 +45,7 @@ final class MainViewModel {
     private let blockedIDsRelay = BehaviorRelay<Set<String>>(value: [])
     private let selectedSegmentRelay = BehaviorRelay<SegmentType>(value: .all)
     private let navigationRelay = BehaviorRelay<[NavigationDataResponse]>(value: [])
+    private let isLoadingRelay = BehaviorRelay<Bool>(value: false)
 
     private var filteredNews: Observable<[News]> {
         Observable.combineLatest(
@@ -79,6 +84,8 @@ final class MainViewModel {
             }
     }
     
+    var isLoading: Observable<Bool> { isLoadingRelay.asObservable() }
+    
     init() {
         Observable.combineLatest(networkService.publishNews, networkService.publishNavigation)
             .compactMap { news, navigation -> (NewsDataResponse, [NavigationDataResponse])? in
@@ -87,9 +94,7 @@ final class MainViewModel {
             }
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { news, navigation in
-                let newss = self.getFormattedNews(from: news.results)
-                self.allNewsRelay.accept(newss)
-                self.navigationRelay.accept(navigation)
+                self.handleFetched(newsResponse: news.results, navigation: navigation)
             })
             .disposed(by: disposeBag)
     }
@@ -111,17 +116,44 @@ private extension MainViewModel {
         }
         return news
     }
+    
+    private func handleFetched(newsResponse: [NewsResponse], navigation: [NavigationDataResponse]) {
+        let news = getFormattedNews(from: newsResponse)
+        
+        let updatedNews: [News]
+        if currentPage == MainModels.Constants.defaultPage {
+            updatedNews = news
+        } else {
+            updatedNews = allNewsRelay.value + news
+        }
+
+        allNewsRelay.accept(updatedNews)
+        navigationRelay.accept(navigation)
+        
+        isLoadingRelay.accept(false)
+    }
 }
 
 extension MainViewModel: IMainViewModel {
     // MARK: - Methods
     
-    func loadNews() {
-        networkService.getNews()
+    func loadLatestNews() {
+        guard !isLoadingRelay.value else { return }
+        
+        isLoadingRelay.accept(true)
+        currentPage = MainModels.Constants.defaultPage
+        networkService.getNews(page: currentPage)
         
         if navigationRelay.value.isEmpty {
             networkService.getNavigation()
         }
+    }
+    
+    func loadNews() {
+        guard !isLoadingRelay.value else { return }
+        isLoadingRelay.accept(true)
+        currentPage += 1
+        networkService.getNews(page: currentPage)
     }
     
     func insertFavorite(news: News) {

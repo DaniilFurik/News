@@ -26,12 +26,17 @@ class MainController: UIViewController {
         return UIRefreshControl()
     }()
     
+    private let spinner: UIActivityIndicatorView = {
+       return UIActivityIndicatorView(style: .medium)
+    }()
+    
     private lazy var tableView: UITableView = {
         let tableView = UITableView()
         tableView.estimatedRowHeight = UITableView.automaticDimension 
         tableView.separatorColor = .clear
         tableView.backgroundColor = .clear
         tableView.tableHeaderView = segmentControl
+        tableView.tableFooterView = spinner
         tableView.verticalScrollIndicatorInsets.right = -Constants.horizontalSpacing
         tableView.delaysContentTouches = false
         tableView.clipsToBounds = false
@@ -72,12 +77,8 @@ class MainController: UIViewController {
 
         configureUI()
         bindViewModel()
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
         
-        loadNews()
+        loadLatestNews()
     }
 }
 
@@ -115,7 +116,7 @@ private extension MainController {
             make.width.equalToSuperview()
         }
         emptyNewsButton.rx.tap.subscribe(onNext: { [weak self] in
-            self?.loadNews()
+            self?.loadLatestNews()
         }).disposed(by: disposeBag)
         
         let emptyNewsLabel = UILabel()
@@ -197,8 +198,8 @@ private extension MainController {
         }
     }
     
-    func loadNews() {
-        viewModel.loadNews()
+    func loadLatestNews() {
+        viewModel.loadLatestNews()
     }
     
     func bindViewModel() {
@@ -272,8 +273,26 @@ private extension MainController {
         
         refreshControl.rx.controlEvent(.valueChanged)
             .subscribe(onNext: { [weak self] in
-                self?.loadNews()
+                self?.loadLatestNews()
             })
+            .disposed(by: disposeBag)
+        
+        tableView.rx.contentOffset
+            .observe(on: MainScheduler.instance)
+            .subscribe(onNext: { [weak self] offset in
+                guard let self = self else { return }
+                let contentHeight = self.tableView.contentSize.height
+                let height = self.tableView.frame.size.height
+                
+                if offset.y > contentHeight - height + 50 {
+                    self.viewModel.loadNews()
+                }
+            })
+            .disposed(by: disposeBag)
+        
+        viewModel.isLoading
+            .observe(on: MainScheduler.instance)
+            .bind(to: spinner.rx.isAnimating)
             .disposed(by: disposeBag)
     }
 }
