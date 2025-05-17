@@ -84,12 +84,16 @@ final class MainViewModel {
     init() {
         Observable.combineLatest(networkService.publishNews, networkService.publishNavigation)
             .compactMap { news, navigation -> (NewsDataResponse, [NavigationDataResponse])? in
-                guard let news = news, let navigation = navigation else { return nil }
+                guard let news, let navigation else {
+                    self.publishError.accept(GlobalConstants.Errors.genericErrorMessage)
+                    self.isLoadingRelay.accept(false)
+                    return nil
+                }
                 return (news, navigation)
             }
             .observe(on: MainScheduler.instance)
-            .subscribe(onNext: { news, navigation in
-                self.handleFetched(newsResponse: news.results, navigation: navigation)
+            .subscribe(onNext: { [weak self] news, navigation in
+                self?.handleFetched(newsResponse: news.results, navigation: navigation)
             })
             .disposed(by: disposeBag)
     }
@@ -133,23 +137,31 @@ extension MainViewModel: IMainViewModel {
     // MARK: - Methods
     
     func loadLatestNews() {
-        guard !isLoadingRelay.value else { return }
-        
-        isLoadingRelay.accept(true)
-        currentPage = MainModels.Constants.defaultPage
-        networkService.getNews(page: currentPage)
-        
-        if navigationRelay.value.isEmpty {
-            networkService.getNavigation()
+        if NetworkManager.shared.isConnected {
+            guard !isLoadingRelay.value else { return }
+            
+            isLoadingRelay.accept(true)
+            currentPage = MainModels.Constants.defaultPage
+            networkService.getNews(page: currentPage)
+            
+            if navigationRelay.value.isEmpty {
+                networkService.getNavigation()
+            }
+        } else {
+            publishError.accept(GlobalConstants.Errors.noConnectionErrorMessage)
         }
     }
     
     func loadNews() {
-        guard !isLoadingRelay.value else { return }
-        
-        isLoadingRelay.accept(true)
-        currentPage += 1
-        networkService.getNews(page: currentPage)
+        if NetworkManager.shared.isConnected {
+            guard !isLoadingRelay.value else { return }
+            
+            isLoadingRelay.accept(true)
+            currentPage += 1
+            networkService.getNews(page: currentPage)
+        } else {
+            publishError.accept(GlobalConstants.Errors.noConnectionErrorMessage)
+        }
     }
     
     func insertFavorite(news: News) {

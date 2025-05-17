@@ -218,14 +218,6 @@ private extension MainController {
                 )}
             .disposed(by: disposeBag)
         
-        viewModel.publishError
-            .observe(on: MainScheduler.instance)
-            .subscribe(onNext: { [weak self] error in
-                self?.showWarningAlert(with: error)
-                self?.refreshControl.endRefreshing()
-            })
-            .disposed(by: disposeBag)
-        
         let selectedSegment = segmentControl.rx.selectedSegmentIndex
             .map { SegmentType(rawValue: $0) ?? .all }
             .share(replay: 1)
@@ -241,13 +233,7 @@ private extension MainController {
             .subscribe(onNext: { [weak self] news, segment in
                 guard let self = self else { return }
                 
-                let isEmpty = news.isEmpty
-                let isFavorites = segment == .favorites
-                let isBlocked = segment == .blocked
-
-                emptyNewsView.isHidden = !(isEmpty && !(isFavorites || isBlocked))
-                emptyFavoriteView.isHidden = !(isFavorites && isEmpty)
-                emptyBlockedView.isHidden = !(isBlocked && isEmpty)
+                updateEmptyViewsVisibility(isListEmpty: news.isEmpty, currentSegment: segment)
             })
             .disposed(by: disposeBag)
         
@@ -278,11 +264,15 @@ private extension MainController {
         
         tableView.rx.contentOffset
             .observe(on: MainScheduler.instance)
-            .subscribe(onNext: { [weak self] offset in
+            .withLatestFrom(viewModel.combinedItems) { (offset: $0, news: $1) }
+            .filter { _, news in
+                !news.isEmpty
+            }
+            .subscribe(onNext: { [weak self] offset, _ in
                 guard let self = self else { return }
-                let contentHeight = tableView.contentSize.height
-                let height = tableView.frame.size.height
-                
+                let contentHeight = self.tableView.contentSize.height
+                let height = self.tableView.frame.size.height
+
                 if offset.y > contentHeight - height + MainModels.Constants.spacing {
                     self.viewModel.loadNews()
                 }
@@ -293,6 +283,31 @@ private extension MainController {
             .observe(on: MainScheduler.instance)
             .bind(to: spinner.rx.isAnimating)
             .disposed(by: disposeBag)
+        
+        viewModel.publishError
+            .observe(on: MainScheduler.instance)
+            .subscribe(onNext: { [weak self] error in
+                guard let self = self else { return }
+                
+                showWarningAlert(with: error)
+                refreshControl.endRefreshing()
+                spinner.stopAnimating()
+                
+                if tableView.visibleCells.isEmpty {
+                    segmentControl.selectedSegmentIndex = (SegmentType.all).rawValue
+                    updateEmptyViewsVisibility(
+                        isListEmpty: true,
+                        currentSegment: SegmentType.all
+                    )
+                }
+            })
+            .disposed(by: disposeBag)
+    }
+    
+    func updateEmptyViewsVisibility(isListEmpty: Bool, currentSegment: SegmentType) {
+        emptyNewsView.isHidden = !(isListEmpty && currentSegment == .all)
+        emptyFavoriteView.isHidden = !(isListEmpty && currentSegment == .favorites)
+        emptyBlockedView.isHidden = !(isListEmpty && currentSegment == .blocked)
     }
 }
 

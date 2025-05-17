@@ -6,8 +6,8 @@ import RxRelay
 protocol INetworkService {
     func getNews(page: Int)
     func getNavigation()
-    var publishNews: PublishRelay<NewsDataResponse?> { get set }
-    var publishNavigation: PublishRelay<[NavigationDataResponse]?> { get set }
+    var publishNews: PublishRelay<NewsDataResponse?> { get }
+    var publishNavigation: PublishRelay<[NavigationDataResponse]?> { get }
 }
 
 final class NetworkService {
