@@ -24,6 +24,7 @@ class NewsTableViewCell: UITableViewCell {
     // MARK: - Properties
     
     static var identifier: String { "\(Self.self)" }
+    
     private weak var delegate: NewsTableViewCellDelegate?
     private let disposeBag = DisposeBag()
     
@@ -169,6 +170,7 @@ extension NewsTableViewCell {
     
     func configure(with item: MainModels.TableItem,viewModel: IMainViewModel,segment: SegmentType, delegate: NewsTableViewCellDelegate?) {
         self.delegate = delegate
+        
         switch item {
         case .news(let news):
             initNews(news: news, viewModel: viewModel, segment: segment)
@@ -210,7 +212,7 @@ private extension NewsTableViewCell {
         if let image = navigation.titleSymbol {
             infoImageView.image = UIImage(systemName: image)
             infoImageView.snp.updateConstraints { make in
-                make.height.equalTo(Constants.cellSpacing * 2)
+                make.height.equalTo(Constants.menuButtonSize)
             }
             
             titleNavigationLabel.snp.updateConstraints { make in
@@ -260,7 +262,7 @@ private extension NewsTableViewCell {
         
         containerView.addSubview(infoImageView)
         infoImageView.snp.makeConstraints { make in
-            make.width.height.equalTo(Constants.cellSpacing * 2)
+            make.width.height.equalTo(Constants.menuButtonSize)
             make.top.centerX.equalToSuperview()
         }
         
@@ -282,7 +284,7 @@ private extension NewsTableViewCell {
             make.left.equalToSuperview().offset(Constants.cellSpacing)
             make.right.equalToSuperview().inset(Constants.cellSpacing)
             make.bottom.equalToSuperview()
-            make.height.equalTo(44)
+            make.height.equalTo(GlobalConstants.Constants.defaultHeightButton)
         }
         navigationButton.rx.tap.subscribe(onNext: { [weak self] in
             if let self, let navigation {
@@ -395,7 +397,6 @@ private extension NewsTableViewCell {
     }
     
     private func loadPreviewImage(for url: URL) {
-        // Если в кэше — сразу вернуть
         if let cachedImage = Self.imageCache[url] {
             previewImage = cachedImage
             return
@@ -406,7 +407,7 @@ private extension NewsTableViewCell {
 
             do {
                 let metadata = try await LPMetadataProvider().startFetchingMetadata(for: url)
-                guard self.currentURL == url else { return }
+                guard currentURL == url else { return }
 
                 if let imageProvider = metadata.imageProvider {
                     let image = try await imageProvider.loadPreviewImage()

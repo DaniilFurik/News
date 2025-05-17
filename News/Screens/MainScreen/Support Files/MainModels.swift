@@ -41,5 +41,8 @@ enum MainModels {
     
     enum Constants {
         static let defaultPage = 1
+        static let emptyNewsHeight: CGFloat = 132
+        static let emptyFavoriteHeight: CGFloat = 76
+        static let spacing: CGFloat = 50
     }
 }

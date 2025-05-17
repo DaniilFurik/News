@@ -17,6 +17,7 @@ enum GlobalConstants {
         static let bigRadius: CGFloat = 8
         static let smallRadius = bigRadius / 2
         static let blockInterval = 3
+        static let defaultHeightButton: CGFloat = 44
     }
     
     enum Fonts {
@@ -28,4 +29,20 @@ enum GlobalConstants {
         static let noConnectionErrorMessage = "No internet connection"
         static let genericErrorMessage = "Something went wrong"
     }
+    
+    enum Strings {
+        static let defaultDateFormat = "MMM d,yyyy"
+        static let defaultLocale = "en_US_POSIX"
+    }
+    
+    enum Texts {
+        static let okText = "OK"
+        static let cancelText = "Cancel"
+    }
+}
+
+enum SegmentType: Int {
+    case all
+    case favorites
+    case blocked
 }

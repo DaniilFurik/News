@@ -3,7 +3,7 @@ import UIKit
 extension UIViewController {
     func showWarningAlert(with title: String) {
         let alert = UIAlertController(title: title, message: .empty, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        alert.addAction(UIAlertAction(title: GlobalConstants.Texts.okText, style: .cancel))
         present(alert, animated: true)
     }
     
@@ -12,7 +12,7 @@ extension UIViewController {
         alert.addAction(UIAlertAction(title: buttonText, style: .destructive, handler: { _ in
             handler()
         }))
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: GlobalConstants.Texts.cancelText, style: .cancel))
         present(alert, animated: true)
     }
 }

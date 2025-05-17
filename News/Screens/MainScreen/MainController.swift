@@ -94,7 +94,7 @@ private extension MainController {
         tableView.addSubview(emptyNewsView)
         emptyNewsView.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.height.equalTo(132)
+            make.height.equalTo(MainModels.Constants.emptyNewsHeight)
             make.width.equalToSuperview().multipliedBy(0.8)
         }
         
@@ -112,7 +112,7 @@ private extension MainController {
         emptyNewsView.addSubview(emptyNewsButton)
         emptyNewsButton.snp.makeConstraints { make in
             make.centerX.bottom.equalToSuperview()
-            make.height.equalTo(44)
+            make.height.equalTo(Constants.defaultHeightButton)
             make.width.equalToSuperview()
         }
         emptyNewsButton.rx.tap.subscribe(onNext: { [weak self] in
@@ -142,7 +142,7 @@ private extension MainController {
         tableView.addSubview(emptyFavoriteView)
         emptyFavoriteView.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.height.equalTo(76)
+            make.height.equalTo(MainModels.Constants.emptyFavoriteHeight)
         }
         
         let emptyFavoriteLabel = UILabel()
@@ -215,8 +215,7 @@ private extension MainController {
                                viewModel: self.viewModel,
                                segment: SegmentType(rawValue: self.segmentControl.selectedSegmentIndex) ?? .all,
                                delegate: self
-                )
-            }
+                )}
             .disposed(by: disposeBag)
         
         viewModel.publishError
@@ -246,9 +245,9 @@ private extension MainController {
                 let isFavorites = segment == .favorites
                 let isBlocked = segment == .blocked
 
-                self.emptyNewsView.isHidden = !(isEmpty && !(isFavorites || isBlocked))
-                self.emptyFavoriteView.isHidden = !(isFavorites && isEmpty)
-                self.emptyBlockedView.isHidden = !(isBlocked && isEmpty)
+                emptyNewsView.isHidden = !(isEmpty && !(isFavorites || isBlocked))
+                emptyFavoriteView.isHidden = !(isFavorites && isEmpty)
+                emptyBlockedView.isHidden = !(isBlocked && isEmpty)
             })
             .disposed(by: disposeBag)
         
@@ -281,10 +280,10 @@ private extension MainController {
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] offset in
                 guard let self = self else { return }
-                let contentHeight = self.tableView.contentSize.height
-                let height = self.tableView.frame.size.height
+                let contentHeight = tableView.contentSize.height
+                let height = tableView.frame.size.height
                 
-                if offset.y > contentHeight - height + 50 {
+                if offset.y > contentHeight - height + MainModels.Constants.spacing {
                     self.viewModel.loadNews()
                 }
             })
@@ -299,6 +298,7 @@ private extension MainController {
 
 extension MainController: UITableViewDelegate {
     // MARK: - TableView Methods
+    
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         if (indexPath.row + 1) % (Constants.blockInterval + 1) == .zero {
             return  Constants.cellNavigationSize

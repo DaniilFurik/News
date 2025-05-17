@@ -2,12 +2,6 @@ import Foundation
 import RxSwift
 import RxCocoa
 
-enum SegmentType: Int {
-    case all
-    case favorites
-    case blocked
-}
-
 // MARK: - Protocol
 
 protocol IMainViewModel {
@@ -32,11 +26,9 @@ final class MainViewModel {
     typealias TableItem = MainModels.TableItem
     
     // MARK: - Properties
-    
-    let publishError = PublishRelay<String>()
-    
+        
     private var currentPage = MainModels.Constants.defaultPage
-    
+
     private let networkService: INetworkService = NetworkService()
     private let disposeBag = DisposeBag()
     
@@ -85,6 +77,9 @@ final class MainViewModel {
     }
     
     var isLoading: Observable<Bool> { isLoadingRelay.asObservable() }
+    let publishError = PublishRelay<String>()
+    
+    // MARK: - Lifecycle
     
     init() {
         Observable.combineLatest(networkService.publishNews, networkService.publishNavigation)
@@ -151,6 +146,7 @@ extension MainViewModel: IMainViewModel {
     
     func loadNews() {
         guard !isLoadingRelay.value else { return }
+        
         isLoadingRelay.accept(true)
         currentPage += 1
         networkService.getNews(page: currentPage)

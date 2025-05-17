@@ -5,9 +5,10 @@ class InfoViewController: UIViewController {
     // MARK: - Typealiases
     
     typealias Images = InfoModels.Images
+    typealias NavigationType = MainModels.NavigationType
+    
     typealias Colors = GlobalConstants.Colors
     typealias Constants = GlobalConstants.Constants
-    typealias NavigationType = MainModels.NavigationType
     typealias Fonts = GlobalConstants.Fonts
     
     // MARK: - Properties
@@ -73,7 +74,7 @@ private extension InfoViewController {
         closeButton.snp.makeConstraints { make in
             make.left.equalToSuperview().offset(Constants.horizontalSpacing)
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(Constants.verticalSpacing * 2)
-            make.width.height.equalTo(Constants.verticalSpacing * 3)
+            make.width.height.equalTo(InfoModels.Constants.closeButtonSize)
         }
         closeButton.rx.tap.subscribe(onNext: { [weak self] in
             self?.dismiss(animated: true)
@@ -92,7 +93,7 @@ private extension InfoViewController {
         containerView.addSubview(imageView)
         imageView.snp.makeConstraints { make in
             make.centerX.top.equalToSuperview()
-            make.width.height.equalTo(48)
+            make.width.height.equalTo(InfoModels.Constants.imageSize)
         }
         
         titleLabel.text = navigation.title
@@ -110,7 +111,7 @@ private extension InfoViewController {
         closeButton.snp.makeConstraints { make in
             make.left.equalToSuperview().offset(Constants.horizontalSpacing)
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(Constants.verticalSpacing * 2)
-            make.width.height.equalTo(Constants.verticalSpacing * 3)
+            make.width.height.equalTo(InfoModels.Constants.closeButtonSize)
         }
         closeButton.rx.tap.subscribe(onNext: { [weak self] in
             self?.dismiss(animated: true)
