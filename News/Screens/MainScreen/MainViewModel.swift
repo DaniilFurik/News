@@ -24,6 +24,7 @@ final class MainViewModel {
     typealias Errors = GlobalConstants.Errors
     typealias Constants = GlobalConstants.Constants
     typealias TableItem = MainModels.TableItem
+    typealias StorageKeys = MainModels.StorageKeys
     
     // MARK: - Properties
         
@@ -82,6 +83,11 @@ final class MainViewModel {
     // MARK: - Lifecycle
     
     init() {
+        let storedFavorites = UserDefaults.standard.stringArray(forKey: StorageKeys.favorites) ?? []
+        let storedBlocked = UserDefaults.standard.stringArray(forKey: StorageKeys.blocked) ?? []
+        favoriteIDsRelay.accept(Set(storedFavorites))
+        blockedIDsRelay.accept(Set(storedBlocked))
+        
         Observable.combineLatest(networkService.publishNews, networkService.publishNavigation)
             .compactMap { news, navigation -> (NewsDataResponse, [NavigationDataResponse])? in
                 guard let news, let navigation else {
@@ -94,6 +100,20 @@ final class MainViewModel {
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] news, navigation in
                 self?.handleFetched(newsResponse: news.results, navigation: navigation)
+            })
+            .disposed(by: disposeBag)
+        
+        favoriteIDsRelay
+            .skip(1)
+            .subscribe(onNext: { ids in
+                UserDefaults.standard.set(Array(ids), forKey: StorageKeys.favorites)
+            })
+            .disposed(by: disposeBag)
+
+        blockedIDsRelay
+            .skip(1)
+            .subscribe(onNext: { ids in
+                UserDefaults.standard.set(Array(ids), forKey: StorageKeys.blocked)
             })
             .disposed(by: disposeBag)
     }

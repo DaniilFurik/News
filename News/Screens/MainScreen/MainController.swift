@@ -35,7 +35,6 @@ class MainController: UIViewController {
         tableView.estimatedRowHeight = UITableView.automaticDimension 
         tableView.separatorColor = .clear
         tableView.backgroundColor = .clear
-        tableView.tableHeaderView = segmentControl
         tableView.tableFooterView = spinner
         tableView.verticalScrollIndicatorInsets.right = -Constants.horizontalSpacing
         tableView.delaysContentTouches = false
@@ -89,6 +88,19 @@ private extension MainController {
         view.backgroundColor = GlobalConstants.Colors.beigeColor
         title = Texts.titleText
         
+        let headerView = UIView(frame: CGRect(
+            x: .zero,
+            y: .zero,
+            width: tableView.frame.width,
+            height: segmentControl.frame.height + Constants.verticalSpacing
+        ))
+        
+        headerView.addSubview(segmentControl)
+        segmentControl.snp.makeConstraints { make in
+            make.left.right.top.equalToSuperview()
+        }
+        
+        tableView.tableHeaderView = headerView
         tableView.addSubview(refreshControl)
         
         tableView.addSubview(emptyNewsView)

@@ -45,4 +45,9 @@ enum MainModels {
         static let emptyFavoriteHeight: CGFloat = 76
         static let spacing: CGFloat = 50
     }
+    
+    enum StorageKeys {
+        static let favorites = "FavoriteNewsIDs"
+        static let blocked = "BlockedNewsIDs"
+    }
 }
