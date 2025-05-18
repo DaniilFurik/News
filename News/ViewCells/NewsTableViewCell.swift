@@ -121,6 +121,7 @@ class NewsTableViewCell: UITableViewCell {
     private let navigationButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = .white
+        button.titleLabel?.font = Fonts.primaryFont
         button.backgroundColor = Colors.blueColor
         button.roundConrers(cornerRadius: GlobalConstants.Constants.bigRadius)
         return button
@@ -207,7 +208,6 @@ private extension NewsTableViewCell {
         
         titleNavigationLabel.text = navigation.title
         subtitleLabel.text = navigation.subtitle
-        navigationButton.setTitle(navigation.buttonTitle, for: .normal)
         
         if let image = navigation.titleSymbol {
             infoImageView.image = UIImage(systemName: image)
@@ -233,7 +233,14 @@ private extension NewsTableViewCell {
             config.image = UIImage(systemName: image)
             config.imagePlacement = .trailing
             config.imagePadding = GlobalConstants.Constants.horizontalSpacing
+            
+            var attributedTitle = AttributedString(navigation.buttonTitle)
+            attributedTitle.font = Fonts.primaryFont
+            config.attributedTitle = attributedTitle
+            
             navigationButton.configuration = config
+        } else {
+            navigationButton.setTitle(navigation.buttonTitle, for: .normal)
         }
     }
     

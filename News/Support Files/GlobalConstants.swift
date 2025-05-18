@@ -21,7 +21,7 @@ enum GlobalConstants {
     }
     
     enum Fonts {
-        static let primaryFont: UIFont = .systemFont(ofSize: 17, weight: .medium)
+        static let primaryFont: UIFont = .systemFont(ofSize: 17, weight: .semibold)
         static let secondaryFont: UIFont = .systemFont(ofSize: 15, weight: .regular)
     }
     
