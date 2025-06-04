@@ -358,16 +358,16 @@ private extension NewsTableViewCell {
         case .all:
             return UIMenu(title: .empty, children: [
                 UIAction(title: Texts.addToFavorite, image: Images.heartImage) { _ in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        self.viewModel?.insertFavorite(news: news)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                        self?.viewModel?.insertFavorite(news: news)
                     }
                 },
-                UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
-                    self.delegate?.showConfirmAlert(
+                UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { [weak self] _ in
+                    self?.delegate?.showConfirmAlert(
                         title: Texts.titleBlock,
                         message: Texts.messageBlock,
                         buttonTitle: Texts.block,
-                        action: { self.viewModel?.insertBlocked(news: news)
+                        action: { self?.viewModel?.insertBlocked(news: news)
                         })
                 }
             ])
@@ -375,28 +375,28 @@ private extension NewsTableViewCell {
         case .favorites:
             return UIMenu(title: .empty, children: [
                 UIAction(title: Texts.removeFromFavorite, image: Images.heartSlashImage) { _ in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        self.viewModel?.removeFavorite(news: news)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                        self?.viewModel?.removeFavorite(news: news)
                     }
                 },
-                UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { _ in
-                    self.delegate?.showConfirmAlert(
+                UIAction(title: Texts.block, image: Images.blockImage, attributes: .destructive) { [weak self] _ in
+                    self?.delegate?.showConfirmAlert(
                         title: Texts.titleBlock,
                         message: Texts.messageBlock,
                         buttonTitle: Texts.block,
-                        action: { self.viewModel?.insertBlocked(news: news)
+                        action: { self?.viewModel?.insertBlocked(news: news)
                         })
                 }
             ])
             
         case .blocked:
             return UIMenu(title: .empty, children: [
-                UIAction(title: Texts.unblock, image: Images.unblockImage, attributes: .destructive) { _ in
-                    self.delegate?.showConfirmAlert(
+                UIAction(title: Texts.unblock, image: Images.unblockImage, attributes: .destructive) { [weak self] _ in
+                    self?.delegate?.showConfirmAlert(
                         title: Texts.titleUnblock,
                         message: Texts.messageUnblock,
                         buttonTitle: Texts.unblock,
-                        action: { self.viewModel?.removeBlocked(news: news)
+                        action: { self?.viewModel?.removeBlocked(news: news)
                         })
                 }
             ])
@@ -410,7 +410,7 @@ private extension NewsTableViewCell {
         }
 
         metadataTask = Task { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
 
             do {
                 let metadata = try await LPMetadataProvider().startFetchingMetadata(for: url)

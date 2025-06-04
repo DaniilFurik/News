@@ -216,16 +216,17 @@ private extension MainController {
     
     func bindViewModel() {
         viewModel.combinedItems
-            .do(onNext: { _ in
-                self.refreshControl.endRefreshing()
+            .do(onNext: { [weak self] _ in
+                self?.refreshControl.endRefreshing()
             })
             .bind(to: tableView.rx.items(
                 cellIdentifier: NewsTableViewCell.identifier,
                 cellType: NewsTableViewCell.self
-            )) { index, item, cell in
+            )) { [weak self] index, item, cell in
+                guard let self else { return }
                 cell.configure(with: item,
-                               viewModel: self.viewModel,
-                               segment: SegmentType(rawValue: self.segmentControl.selectedSegmentIndex) ?? .all,
+                               viewModel: viewModel,
+                               segment: SegmentType(rawValue: segmentControl.selectedSegmentIndex) ?? .all,
                                delegate: self
                 )}
             .disposed(by: disposeBag)
@@ -243,7 +244,7 @@ private extension MainController {
         Observable.combineLatest(viewModel.combinedItems, selectedSegment)
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] news, segment in
-                guard let self = self else { return }
+                guard let self else { return }
                 
                 updateEmptyViewsVisibility(isListEmpty: news.isEmpty, currentSegment: segment)
             })
@@ -281,12 +282,12 @@ private extension MainController {
                 !news.isEmpty
             }
             .subscribe(onNext: { [weak self] offset, _ in
-                guard let self = self else { return }
-                let contentHeight = self.tableView.contentSize.height
-                let height = self.tableView.frame.size.height
+                guard let self else { return }
+                let contentHeight = tableView.contentSize.height
+                let height = tableView.frame.size.height
 
                 if offset.y > contentHeight - height + MainModels.Constants.spacing {
-                    self.viewModel.loadNews()
+                    viewModel.loadNews()
                 }
             })
             .disposed(by: disposeBag)
@@ -299,11 +300,11 @@ private extension MainController {
         viewModel.publishError
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] error in
-                guard let self = self else { return }
+                guard let self else { return }
                 
                 showWarningAlert(with: error)
                 refreshControl.endRefreshing()
-                spinner.stopAnimating()
+                //spinner.stopAnimating()
                 
                 if tableView.visibleCells.isEmpty {
                     segmentControl.selectedSegmentIndex = (SegmentType.all).rawValue
@@ -338,8 +339,8 @@ extension MainController: UITableViewDelegate {
 extension MainController: NewsTableViewCellDelegate {
     // MARK: - Cell Delegate Methods
     
-    func showConfirmAlert(title: String, message: String, buttonTitle buttonText: String, action handler: @escaping () -> Void) {
-        self.showAlert(title: title, message: message, buttonText: buttonText, handler: handler)
+    func showConfirmAlert(title: String, message: String, buttonTitle buttonText: String, action handler: @escaping () -> Void) { 
+        showAlert(title: title, message: message, buttonText: buttonText, handler: handler)
     }
     
     func navigation(navigation: NavigationDataResponse) {

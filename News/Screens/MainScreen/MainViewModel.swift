@@ -89,10 +89,10 @@ final class MainViewModel {
         blockedIDsRelay.accept(Set(storedBlocked))
         
         Observable.combineLatest(networkService.publishNews, networkService.publishNavigation)
-            .compactMap { news, navigation -> (NewsDataResponse, [NavigationDataResponse])? in
+            .compactMap { [weak self] news, navigation -> (NewsDataResponse, [NavigationDataResponse])? in
                 guard let news, let navigation else {
-                    self.publishError.accept(GlobalConstants.Errors.genericErrorMessage)
-                    self.isLoadingRelay.accept(false)
+                    self?.publishError.accept(GlobalConstants.Errors.genericErrorMessage)
+                    self?.isLoadingRelay.accept(false)
                     return nil
                 }
                 return (news, navigation)
